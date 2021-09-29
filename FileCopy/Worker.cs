@@ -40,9 +40,9 @@ namespace FileCopy
                 dirWatcher.Created += OnChanged;
                 dirWatcher.EnableRaisingEvents = true;
 
+                _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                     await Task.Delay(1000, stoppingToken);
                 }
             }
@@ -50,14 +50,14 @@ namespace FileCopy
 
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
-            Console.WriteLine($"File found:{e.FullPath}");
+            _logger.LogInformation($"File found:{e.FullPath}");
             try
             {
                 _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                _logger.LogError($"Error: {ex.Message}");
             }
             
         }

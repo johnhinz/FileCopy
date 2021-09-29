@@ -28,7 +28,7 @@ namespace FileCopy
                 .Handle<FileLoadException>()
                 .Or<FileNotFoundException>()
                 .Or<ArgumentException>()
-                .Or<OutOfMemoryException>().WaitAndRetry(retryCount: 5, retryNumber => TimeSpan.FromMilliseconds(200));
+                .Or<OutOfMemoryException>().WaitAndRetry(retryCount: 5, retryNumber => TimeSpan.FromMilliseconds(500));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

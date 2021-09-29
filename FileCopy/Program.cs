@@ -22,7 +22,9 @@ namespace FileCopy
                 {
                     services.AddHostedService<Worker>((serviceProvider) =>
                     {
-                        return new Worker(serviceProvider.GetService <ILogger<Worker>>(), "c:\\temp", "c:\\Dump");
+                        return new Worker(serviceProvider.GetService <ILogger<Worker>>(),
+                            hostContext.Configuration.GetSection("SourceDirectory").Value,
+                            hostContext.Configuration.GetSection("DestinationDirectory").Value);
                     });
                 });
     }

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace FileCopy
 {
@@ -16,9 +17,13 @@ namespace FileCopy
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .UseWindowsService()
                 .ConfigureServices((hostContext, services) =>
                 {
-                    services.AddHostedService<Worker>();
+                    services.AddHostedService<Worker>((serviceProvider) =>
+                    {
+                        return new Worker(serviceProvider.GetService <ILogger<Worker>>(), "c:\\temp", "c:\\Dump");
+                    });
                 });
     }
 }

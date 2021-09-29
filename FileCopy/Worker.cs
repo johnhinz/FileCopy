@@ -16,10 +16,14 @@ namespace FileCopy
     {
         private readonly ILogger<Worker> _logger;
         private readonly RetryPolicy _fileAccessRetryPolicy;
+        private readonly string _sourcePath;
+        private readonly string _destPath;
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(ILogger<Worker> logger, string sourcePath, string destPath)
         {
             _logger = logger;
+            _sourcePath = sourcePath;
+            _destPath = destPath;
             _fileAccessRetryPolicy = Policy
                 .Handle<FileLoadException>()
                 .Or<FileNotFoundException>()
@@ -31,7 +35,7 @@ namespace FileCopy
         {
             using (FileSystemWatcher dirWatcher = new FileSystemWatcher())
             {
-                dirWatcher.Path = "c:\\temp";
+                dirWatcher.Path = _sourcePath;
                 dirWatcher.NotifyFilter = NotifyFilters.FileName;
                 dirWatcher.Created += OnChanged;
                 dirWatcher.EnableRaisingEvents = true;
@@ -49,7 +53,7 @@ namespace FileCopy
             Console.WriteLine($"File found:{e.FullPath}");
             try
             {
-                _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"C:\\Dump\\{e.Name}", true); });
+                _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
             }
             catch (Exception ex)
             {

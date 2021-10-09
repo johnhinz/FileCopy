@@ -9,6 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Polly;
 using Polly.Retry;
+using System.Net.Http;
+using Newtonsoft.Json;
+using System.Net.Http.Headers;
 
 namespace FileCopy
 {
@@ -53,7 +56,20 @@ namespace FileCopy
             _logger.LogInformation($"File found:{e.FullPath}");
             try
             {
-                _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
+                using (MemoryStream ms = new MemoryStream()) 
+                {
+                    new FileStream(e.FullPath, FileMode.Open).CopyTo(ms);
+                    HttpResponseMessage output;
+                    using (var _client = new HttpClient())
+                    {
+                        var request = new MultipartFormDataContent();
+                        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", "XXX");
+                        request.Add(new StreamContent(ms),"document");//, "document", Path.GetFileName(e.FullPath));
+                        output = _client.PostAsync("http://192.168.0.80/api/documents/post_document/", request).Result;
+                    }
+                    //return JsonConvert.DeserializeObject<Predictions>(await output.Content.ReadAsStringAsync());
+                }
+                //_fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
             }
             catch (Exception ex)
             {

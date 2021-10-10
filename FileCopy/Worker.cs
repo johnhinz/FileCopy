@@ -58,13 +58,18 @@ namespace FileCopy
             {
                 using (MemoryStream ms = new MemoryStream()) 
                 {
-                    new FileStream(e.FullPath, FileMode.Open).CopyTo(ms);
+                    var fs = new FileStream(e.FullPath, FileMode.Open);//.CopyTo(ms);
                     HttpResponseMessage output;
                     using (var _client = new HttpClient())
                     {
                         var request = new MultipartFormDataContent();
                         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", "XXX");
-                        request.Add(new StreamContent(ms),"document");//, "document", Path.GetFileName(e.FullPath));
+                        _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("multipart/form-data"));
+                        _client.DefaultRequestHeaders.Add("X-API-Version", "2");
+                        _client.DefaultRequestHeaders.Add("X-Version", "1.3.0");
+                        request.Add(new StreamContent(fs), Path.GetFileName(e.FullPath), Path.GetFileName(e.FullPath));
+                        request.Headers.ContentType.MediaType = "multipart/form-data";
+                   
                         output = _client.PostAsync("http://192.168.0.80/api/documents/post_document/", request).Result;
                     }
                     //return JsonConvert.DeserializeObject<Predictions>(await output.Content.ReadAsStringAsync());

@@ -1,17 +1,11 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Polly;
 using Polly.Retry;
-using System.Net.Http;
-using Newtonsoft.Json;
-using System.Net.Http.Headers;
 
 namespace FileCopy
 {
@@ -22,7 +16,7 @@ namespace FileCopy
         private readonly string _sourcePath;
         private readonly string _destPath;
 
-        public Worker(ILogger<Worker> logger, string sourcePath, string destPath)
+        public Worker(ILogger<Worker> logger, string sourcePath, string destPath, int retryDelay, int retryCount)
         {
             _logger = logger;
             _sourcePath = sourcePath;
@@ -31,7 +25,9 @@ namespace FileCopy
                 .Handle<FileLoadException>()
                 .Or<FileNotFoundException>()
                 .Or<ArgumentException>()
-                .Or<OutOfMemoryException>().WaitAndRetry(retryCount: 5, retryNumber => TimeSpan.FromMilliseconds(500));
+                .Or<OutOfMemoryException>()
+                .Or<IOException>()
+                .WaitAndRetry(retryCount: retryCount, retryNumber => TimeSpan.FromMilliseconds(retryDelay));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -56,31 +52,12 @@ namespace FileCopy
             _logger.LogInformation($"File found:{e.FullPath}");
             try
             {
-                using (MemoryStream ms = new MemoryStream()) 
-                {
-                    var fs = new FileStream(e.FullPath, FileMode.Open);//.CopyTo(ms);
-                    HttpResponseMessage output;
-                    using (var _client = new HttpClient())
-                    {
-                        var request = new MultipartFormDataContent();
-                        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", "XXX");
-                        _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("multipart/form-data"));
-                        _client.DefaultRequestHeaders.Add("X-API-Version", "2");
-                        _client.DefaultRequestHeaders.Add("X-Version", "1.3.0");
-                        request.Add(new StreamContent(fs), Path.GetFileName(e.FullPath), Path.GetFileName(e.FullPath));
-                        request.Headers.ContentType.MediaType = "multipart/form-data";
-                   
-                        output = _client.PostAsync("http://192.168.0.80/api/documents/post_document/", request).Result;
-                    }
-                    //return JsonConvert.DeserializeObject<Predictions>(await output.Content.ReadAsStringAsync());
-                }
-                //_fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
+                _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error: {ex.Message}");
             }
-            
         }
     }
 }

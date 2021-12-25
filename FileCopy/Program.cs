@@ -30,11 +30,26 @@ namespace FileCopy
                 })
                 .ConfigureServices((hostContext, services) =>
                 {
+                    int retryDelay;
+                    if (!int.TryParse(hostContext.Configuration.GetSection("RetryDelay").Value, out retryDelay))
+                    {
+                        retryDelay = 1000;
+                    }
+
+                    int retryCount;
+                    if (!int.TryParse(hostContext.Configuration.GetSection("RetryCount").Value, out retryCount))
+                    {
+                        retryCount = 5;
+                    }
+
                     services.AddHostedService<Worker>((serviceProvider) =>
                     {
                         return new Worker(serviceProvider.GetService <ILogger<Worker>>(),
                             hostContext.Configuration.GetSection("SourceDirectory").Value,
-                            hostContext.Configuration.GetSection("DestinationDirectory").Value);
+                            hostContext.Configuration.GetSection("DestinationDirectory").Value,
+                            retryDelay,
+                            retryCount
+                            );
                     });
                 });
     }

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using MQTTnet.Client.Publishing;
 
 namespace FileCopy
 {
@@ -41,6 +42,18 @@ namespace FileCopy
                     {
                         retryCount = 5;
                     }
+
+                    services.AddTransient<IPublishDetections<MqttClientPublishResult>>((ServiceProvider) =>
+                    {
+                        return new MqttAIPublish(
+                            ServiceProvider.GetService<ILogger<MqttAIPublish>>(),
+                            hostContext.Configuration.GetSection("RepositoryEndpoint").Value,
+                            hostContext.Configuration.GetSection("PublisherName").Value,
+                            hostContext.Configuration.GetSection("TopicParser").Value,
+                            int.Parse(hostContext.Configuration.GetSection("TopicPosition").Value),
+                            hostContext.Configuration.GetSection("QueueName").Value
+                            );
+                    });
 
                     services.AddHostedService<Worker>((serviceProvider) =>
                     {

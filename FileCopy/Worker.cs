@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Polly;
 using Polly.Retry;
+using MQTTnet.Client.Publishing;
 
 namespace FileCopy
 {
@@ -15,12 +16,14 @@ namespace FileCopy
         private readonly RetryPolicy _fileAccessRetryPolicy;
         private readonly string _sourcePath;
         private readonly string _destPath;
+        private readonly IPublishDetections<MqttClientPublishResult> _mqttQueue;
 
-        public Worker(ILogger<Worker> logger, string sourcePath, string destPath, int retryDelay, int retryCount)
+        public Worker(ILogger<Worker> logger, IPublishDetections<MqttClientPublishResult> mqttQueue, string sourcePath, string destPath, int retryDelay, int retryCount)
         {
             _logger = logger;
             _sourcePath = sourcePath;
             _destPath = destPath;
+            _mqttQueue = mqttQueue;
             _fileAccessRetryPolicy = Policy
                 .Handle<FileLoadException>()
                 .Or<FileNotFoundException>()
@@ -53,6 +56,7 @@ namespace FileCopy
             try
             {
                 _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
+                _mqttQueue.PublishAsync()
             }
             catch (Exception ex)
             {

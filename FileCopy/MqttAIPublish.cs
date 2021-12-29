@@ -61,7 +61,6 @@ namespace FileCopy
                                         .Build(),
                                  CancellationToken.None);
             }
-
         }
     }
 }

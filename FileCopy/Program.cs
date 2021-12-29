@@ -58,6 +58,7 @@ namespace FileCopy
                     services.AddHostedService<Worker>((serviceProvider) =>
                     {
                         return new Worker(serviceProvider.GetService <ILogger<Worker>>(),
+                            serviceProvider.GetService<IPublishDetections<MqttClientPublishResult>>(),
                             hostContext.Configuration.GetSection("SourceDirectory").Value,
                             hostContext.Configuration.GetSection("DestinationDirectory").Value,
                             retryDelay,

@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using Polly;
 using Polly.Retry;
 using MQTTnet.Client.Publishing;
+using MQTTnet;
+using MQTTnet.Client.Options;
+using System.Text.Json;
 
 namespace FileCopy
 {
@@ -56,7 +59,34 @@ namespace FileCopy
             try
             {
                 _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
-                _mqttQueue.PublishAsync()
+
+
+
+                Message message = new Message()
+                {
+                    FileName = e.FullPath
+                };
+
+                _mqttQueue.PublishAsync(message, "Test", CancellationToken.None);
+
+                //var factory = new MqttFactory();
+                //using (var mqttClient = factory.CreateMqttClient())
+                //{
+                //    var options = new MqttClientOptionsBuilder()
+                //        .WithClientId("FileCopy")
+                //        .WithTcpServer("cthost.johnhinz.com")
+                //        .WithCleanSession()
+                //        .Build();
+
+                //    mqttClient.ConnectAsync(options, CancellationToken.None).Wait();
+
+                //    mqttClient.PublishAsync(
+                //                    new MqttApplicationMessageBuilder()
+                //                            .WithTopic("FileCopy/FileDetected")
+                //                            .WithPayload(JsonSerializer.Serialize(message))
+                //                            .Build(),
+                //                     CancellationToken.None);
+                //}
             }
             catch (Exception ex)
             {

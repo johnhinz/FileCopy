@@ -7,9 +7,7 @@ using System.Threading.Tasks;
 using Polly;
 using Polly.Retry;
 using MQTTnet.Client.Publishing;
-using MQTTnet;
-using MQTTnet.Client.Options;
-using System.Text.Json;
+using System.Collections.Generic;
 
 namespace FileCopy
 {
@@ -38,19 +36,25 @@ namespace FileCopy
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            using (FileSystemWatcher dirWatcher = new FileSystemWatcher())
-            {
-                dirWatcher.Path = _sourcePath;
-                dirWatcher.NotifyFilter = NotifyFilters.FileName;
-                dirWatcher.Created += OnChanged;
-                dirWatcher.EnableRaisingEvents = true;
+            string[] filters = { "*.pdf", "*.jpg", "*.jpeg" };
+            List<FileSystemWatcher> watchers = new List<FileSystemWatcher>();
 
-                _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                while (!stoppingToken.IsCancellationRequested)
-                {
-                    await Task.Delay(1000, stoppingToken);
-                }
+            foreach (string extension in filters)
+            {
+                FileSystemWatcher watcher = new FileSystemWatcher();
+                watcher.Path = _sourcePath;
+                watcher.Filter = extension;
+                watcher.NotifyFilter = NotifyFilters.FileName;
+                watcher.Created += OnChanged;
+                watcher.EnableRaisingEvents = true;
+                watchers.Add(watcher);
             }
+            _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000, stoppingToken);
+            }
+
         }
 
         private void OnChanged(object sender, FileSystemEventArgs e)
@@ -60,33 +64,12 @@ namespace FileCopy
             {
                 _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
 
-
-
                 Message message = new Message()
                 {
                     FileName = e.FullPath
                 };
 
-                _mqttQueue.PublishAsync(message, "Test", CancellationToken.None);
-
-                //var factory = new MqttFactory();
-                //using (var mqttClient = factory.CreateMqttClient())
-                //{
-                //    var options = new MqttClientOptionsBuilder()
-                //        .WithClientId("FileCopy")
-                //        .WithTcpServer("cthost.johnhinz.com")
-                //        .WithCleanSession()
-                //        .Build();
-
-                //    mqttClient.ConnectAsync(options, CancellationToken.None).Wait();
-
-                //    mqttClient.PublishAsync(
-                //                    new MqttApplicationMessageBuilder()
-                //                            .WithTopic("FileCopy/FileDetected")
-                //                            .WithPayload(JsonSerializer.Serialize(message))
-                //                            .Build(),
-                //                     CancellationToken.None);
-                //}
+                _mqttQueue.PublishAsync(message, "File", CancellationToken.None);
             }
             catch (Exception ex)
             {

@@ -1,16 +1,59 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿using Microsoft.EntityFrameworkCore;
 using TriggeredFileCopy;
 
-Console.WriteLine("Hello, World!");
+_fileAccessRetryPolicy = Policy
+                .Handle<FileLoadException>()
+                .Or<FileNotFoundException>()
+                .Or<ArgumentException>()
+                .Or<OutOfMemoryException>()
+                .Or<IOException>()
+                .WaitAndRetry(retryCount: retryCount, retryNumber => TimeSpan.FromMilliseconds(retryDelay));
+
+string[] files = Directory.GetFiles("Z:\\", "*.*", SearchOption.AllDirectories);
+string[] extensions = new string[] { ".jpg", ".pdf" };
+
+List<History> histories = new List<History>();
+
+foreach (var file in files)
+{
+    FileInfo fi = new FileInfo(file);
+    if (extensions.Contains(fi.Extension))
+    {
+        var historyFile = new History()
+        {
+            filename = fi.Name,
+            filepath = fi.DirectoryName.Substring(2),
+            filesize = fi.Length,
+            verify = true
+        };
+        histories.Add(historyFile);
+    }
+}
 
 FileCopyContext context = new FileCopyContext();
 
-History history = new History()
+foreach (var file in histories)
 {
-    filename = "XXX",
-    filepath = "YYY",
-    filesize = 123,
-};
+    var foundFile = context.Histories
+        .Where(x => x.filename == file.filename)
+        .Where(x => x.filesize == file.filesize)
+        .Where(x => x.filepath == file.filepath ).FirstOrDefault();
 
-context.Histories.Add(history);
-context.SaveChanges();
+    if (foundFile != null)
+    {
+        Console.WriteLine($"{file.filename} found");
+    }
+    else
+    {
+        _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
+        context.Histories.Add(file);
+        try
+        {
+            context.SaveChanges();
+            Console.WriteLine($"{file.filename} saved");
+        } catch
+        { }
+    }
+}
+
+Console.ReadKey();

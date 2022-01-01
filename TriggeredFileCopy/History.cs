@@ -14,8 +14,10 @@ namespace TriggeredFileCopy
         [Key]
         public long id { get; set; }
         [Column("file_name")]
+        [MaxLength(100)]
         public string filename { get; set; }
         [Column("file_path")]
+        [MaxLength(100)]
         public string filepath { get; set; }
         [Column("file_size")]
         public long filesize { get; set; }

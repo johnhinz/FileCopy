@@ -1,59 +1,82 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Polly;
 using TriggeredFileCopy;
 
-_fileAccessRetryPolicy = Policy
+
+AppSettings appSettings = new AppSettings();
+
+var builder = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+var configuration = builder.Build();
+
+ConfigurationBinder.Bind(configuration.GetSection("AppSettings"), appSettings);
+
+Policy _fileAccessRetryPolicy = Policy
                 .Handle<FileLoadException>()
                 .Or<FileNotFoundException>()
                 .Or<ArgumentException>()
                 .Or<OutOfMemoryException>()
                 .Or<IOException>()
-                .WaitAndRetry(retryCount: retryCount, retryNumber => TimeSpan.FromMilliseconds(retryDelay));
+                .WaitAndRetry(5, retryNumber => TimeSpan.FromMilliseconds(5000));
 
-string[] files = Directory.GetFiles("Z:\\", "*.*", SearchOption.AllDirectories);
+
+string[] files = Directory.GetFiles(appSettings.SourceDirectory, "*.*", SearchOption.AllDirectories);
 string[] extensions = new string[] { ".jpg", ".pdf" };
 
-List<History> histories = new List<History>();
+List<FileInfo> histories = new List<FileInfo>();
 
-foreach (var file in files)
+Parallel.ForEach(files, file =>
 {
     FileInfo fi = new FileInfo(file);
     if (extensions.Contains(fi.Extension))
     {
-        var historyFile = new History()
+        if (fi.DirectoryName.IndexOf("recycle", StringComparison.OrdinalIgnoreCase) == -1)
         {
-            filename = fi.Name,
-            filepath = fi.DirectoryName.Substring(2),
-            filesize = fi.Length,
-            verify = true
-        };
-        histories.Add(historyFile);
+            histories.Add(fi);
+        }
     }
-}
+});
 
 FileCopyContext context = new FileCopyContext();
 
+MqttAIPublish _mqttQueue = new MqttAIPublish("cthost.johnhinz.com", "TriggeredFileCopy", "\\.", 0, "FileCopy");
+
 foreach (var file in histories)
 {
-    var foundFile = context.Histories
-        .Where(x => x.filename == file.filename)
-        .Where(x => x.filesize == file.filesize)
-        .Where(x => x.filepath == file.filepath ).FirstOrDefault();
+    if (file == null)
+        continue;
 
-    if (foundFile != null)
+    var foundFile = context.Histories
+        .Where(x => x.filename == file.Name)
+        .Where(x => x.filesize == file.Length)
+        .Where(x => x.filepath == file.DirectoryName).FirstOrDefault();
+
+    if (foundFile == null)
     {
-        Console.WriteLine($"{file.filename} found");
-    }
-    else
-    {
-        _fileAccessRetryPolicy.Execute(() => { File.Copy(e.FullPath, $"{_destPath}\\{e.Name}", true); });
-        context.Histories.Add(file);
+        _fileAccessRetryPolicy.Execute(() => { File.Copy(file.FullName, $"{appSettings.TargetDirectory}\\{file.Name}", true); });
+        context.Histories.Add(
+            new History()
+            {
+                filename = file.Name,
+                filepath = file.DirectoryName,
+                filesize = file.Length,
+                verify = true
+            });
         try
         {
             context.SaveChanges();
-            Console.WriteLine($"{file.filename} saved");
-        } catch
+            Console.WriteLine($"{file.FullName} saved");
+            Message message = new Message()
+            {
+                FileName = file.FullName
+            };
+            _mqttQueue.PublishAsync(message, "File", CancellationToken.None);
+        }
+        catch
         { }
     }
 }
 
-Console.ReadKey();
+Console.WriteLine("Completed!");

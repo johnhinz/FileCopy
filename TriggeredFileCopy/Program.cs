@@ -50,8 +50,8 @@ foreach (var file in histories)
 
     var foundFile = context.Histories
         .Where(x => x.filename == file.Name)
-        .Where(x => x.filesize == file.Length)
-        .Where(x => x.filepath == file.DirectoryName).FirstOrDefault();
+        .Where(x => x.filesize == file.Length).FirstOrDefault();
+        //.Where(x => x.filepath == file.DirectoryName).FirstOrDefault();
 
     if (foundFile == null)
     {

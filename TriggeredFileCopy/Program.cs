@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -18,8 +19,11 @@ public class Program
 
         ConfigurationBinder.Bind(configuration.GetSection("AppSettings"), appSettings);
 
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.File("consoleapp.log")
+            .CreateLogger();
         var _logger = new LoggerConfiguration().CreateLogger();
-         //= new Logger<Program>();
+        //= new Logger<Program>();
         CreateHostBuilder(args).Build().Run();
 
         Policy _fileAccessRetryPolicy = Policy
@@ -45,12 +49,12 @@ public class Program
                 if (fi.DirectoryName.IndexOf("recycle", StringComparison.OrdinalIgnoreCase) == -1)
                 {
                     histories.Add(fi);
-                    _logger.Debug($"Found file {fi.FullName}");
+                    //_logger.Debug($"Found file {fi.FullName}");
                 }
             }
         });
 
-        _logger.Information($"Completed enumerating directories under {appSettings.SourceDirectory}");
+        //_logger.Information($"Completed enumerating directories under {appSettings.SourceDirectory}");
 
         FileCopyContext context = new FileCopyContext();
 
@@ -68,7 +72,7 @@ public class Program
 
             if (foundFile == null)
             {
-                _logger.Information($"Found new file {file.FullName}");
+                //_logger.Information($"Found new file {file.FullName}");
                 _fileAccessRetryPolicy.Execute(() => { File.Copy(file.FullName, $"{appSettings.TargetDirectory}\\{file.Name}", true); });
                 context.Histories.Add(
                     new History()
@@ -97,7 +101,14 @@ public class Program
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-        .UseSerilog((hostingContext, loggerConfiguration) =>
-        loggerConfiguration.ReadFrom.Configuration(hostingContext.Configuration));
-}
+               Host.CreateDefaultBuilder(args)
+                   .ConfigureLogging((hostContext, logging) =>
+                   {
+                       var serilogLogger = new LoggerConfiguration()
+                       .ReadFrom.Configuration(hostContext.Configuration)
+                       .CreateLogger();
+
+                       logging.ClearProviders();
+                       logging.AddSerilog(serilogLogger);
+                   });
+        }

@@ -10,7 +10,7 @@ namespace TriggeredFileCopy
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder
-                .UseMySql("server=cthost.johnhinz.com;database=FileCopy;user=XXX;password=XXX",
+                .UseMySql("server=cthost.johnhinz.com;database=FileCopy;user=root;password=XXXX",
                     new MySqlServerVersion(new Version(10, 4, 17)))
                 .UseLoggerFactory(LoggerFactory.Create(b => b
                     .AddConsole()

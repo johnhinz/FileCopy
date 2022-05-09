@@ -2,9 +2,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 //using Microsoft.Extensions.Logging;
 using Polly;
 using Serilog;
+using Serilog.Core;
 using TriggeredFileCopy;
 
 public class Program
@@ -20,10 +22,14 @@ public class Program
 
         ConfigurationBinder.Bind(configuration.GetSection("AppSettings"), appSettings);
 
+        Log.Logger = new LoggerConfiguration()
+               .ReadFrom.Configuration(configuration.GetSection("Serilog"))
+               .CreateLogger();
 
-        IHost host = CreateHostBuilder(args).Build();
-        host.Start();
-        var _logger = host.Services.GetService<Serilog.ILogger>();
+        Log.CloseAndFlush();
+        //IHost host = CreateHostBuilder(args).Build();
+        //host.Start();
+        //var _logger = host.Services.GetService<Microsoft.Extensions.Logging.ILogger>();
 
 
 
@@ -35,7 +41,7 @@ public class Program
                         .Or<IOException>()
                         .WaitAndRetry(5, retryNumber => TimeSpan.FromMilliseconds(5000));
 
-        _logger.Information($"Started enumerating directories under {appSettings.SourceDirectory}");
+        Log.Logger.Error($"Started enumerating directories under {appSettings.SourceDirectory}");
 
         string[] files = Directory.GetFiles(appSettings.SourceDirectory, "*.*", SearchOption.AllDirectories);
         string[] extensions = new string[] { ".jpg", ".pdf" };
@@ -105,11 +111,11 @@ public class Program
                Host.CreateDefaultBuilder(args)
                    .ConfigureLogging((hostContext, logging) =>
                    {
-                       var serilogLogger = new LoggerConfiguration()
+                       Logger serilogLogger = new LoggerConfiguration()
                        .ReadFrom.Configuration(hostContext.Configuration)
                        .CreateLogger();
 
-                       //logging.ClearProviders();
+                       logging.ClearProviders();
                        logging.AddSerilog(serilogLogger);
                    });
         }

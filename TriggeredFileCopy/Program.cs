@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+//using Microsoft.Extensions.Logging;
 using Polly;
 using Serilog;
 using TriggeredFileCopy;
@@ -19,12 +20,12 @@ public class Program
 
         ConfigurationBinder.Bind(configuration.GetSection("AppSettings"), appSettings);
 
-        Log.Logger = new LoggerConfiguration()
-            .WriteTo.File("consoleapp.log")
-            .CreateLogger();
-        var _logger = new LoggerConfiguration().CreateLogger();
-        //= new Logger<Program>();
-        CreateHostBuilder(args).Build().Run();
+
+        IHost host = CreateHostBuilder(args).Build();
+        host.Start();
+        var _logger = host.Services.GetService<Serilog.ILogger>();
+
+
 
         Policy _fileAccessRetryPolicy = Policy
                         .Handle<FileLoadException>()
@@ -108,7 +109,7 @@ public class Program
                        .ReadFrom.Configuration(hostContext.Configuration)
                        .CreateLogger();
 
-                       logging.ClearProviders();
+                       //logging.ClearProviders();
                        logging.AddSerilog(serilogLogger);
                    });
         }
